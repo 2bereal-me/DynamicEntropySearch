@@ -15,16 +15,38 @@ class DynamicEntropySearchCore(object):
         intensity_weight="entropy",  # "entropy" or None
     ) -> None:
         """
-        Initialize the EntropySearch class.
+        Initialize the :class:`DynamicEntropySearch` class.
 
-        :param path_data: The path of the index files.
-        :param max_ms2_tolerance_in_da: The maximum MS2 tolerance used when searching the MS/MS spectra, in Dalton. Default is 0.024.
-        :param mass_per_block:   The step size of the m/z index, in Dalton. Default is 0.05.
-                                The smaller the step size, the faster the search, but the larger the index size and longer the index building time.
-        :param extend_fold: Extension multiple of reserved_len over data_len in each block.
-        :param max_indexed_mz:  The max m/z for indexing. All ions with larger m/z than it will be classified in a single block. Default is 1500.00005.
-        :param intensity_weight: The weight of the intensity, can be "entropy" or None. If set to "entropy", the intensity will be weighted by the entropy.
-                                If set to None, the intensity will not be weighted, which is equivalent to the unweighted entropy similarity.
+        Parameters
+        ----------
+        path_data : str or Path
+            Path to the directory where index files will be stored.
+
+        max_ms2_tolerance_in_da : float, optional
+            Maximum MS2 tolerance used when searching MS/MS spectra, in Dalton.
+            Default is ``0.024``.
+
+        extend_fold : int, optional
+            Expansion multiplier for ``reserved_len`` relative to ``data_len`` inside each block. Must be greater than 1.
+            Default is ``3``.
+
+        mass_per_block : float, optional
+            Step size (in Da) for constructing m/z index blocks.  
+            Default is ``0.05``.
+
+        max_indexed_mz : float, optional
+            Maximum m/z value included in the block index.  
+            All ions with m/z greater than this threshold will be grouped into a single block. 
+            Default is ``1500.00005``.
+
+        intensity_weight : {"entropy", None}, optional
+            Intensity weighting mode:
+            
+            - ``"entropy"`` — intensity is entropy-weighted  
+            - ``None`` — no weighting (equivalent to unweighted entropy similarity)
+
+            Default is ``"entropy"``.
+
         """
         self.max_ms2_tolerance_in_da = max_ms2_tolerance_in_da
         self.mass_per_block = mass_per_block
@@ -86,14 +108,40 @@ class DynamicEntropySearchCore(object):
         peaks=None,
         ms2_tolerance_in_da=0.02,
     ):
+        
         """
-        Perform open- or neutral loss search on the MS/MS spectra library.
+        Perform open search or neutral-loss search on the MS/MS spectral library.
 
-        :param method:  The search method, can be "open" or "neutral_loss".
-                        Set it to "open" for identity search and open search, set it to "neutral_loss" for neutral loss search.
-        :param precursor_mz:    The precursor m/z of the query MS/MS spectrum, required for neutral loss search.
-        :param peaks:   The peaks of the query MS/MS spectrum. The peaks need to be precleaned by "clean_spectrum" function.
-        :param ms2_tolerance_in_da: The MS2 tolerance used when searching the MS/MS spectra, in Dalton. Default is 0.02.
+        Parameters
+        ----------
+        method : {"open", "neutral_loss"}, optional
+            Search mode.
+
+            - ``"open"`` — identity search or open search  
+            - ``"neutral_loss"`` — neutral-loss-based matching
+
+            Default is ``"open"``.
+
+        precursor_mz : float, optional
+            Precursor m/z of the query MS/MS spectrum.  
+            Required when ``method="neutral_loss"``.
+
+        peaks : numpy.ndarray
+            Array of fragment peaks from the query spectrum.  
+            The peaks must be preprocessed using :func:`clean_spectrum` and normalized such that intensities sum to 1.
+
+        ms2_tolerance_in_da : float, optional
+            Fragment mass tolerance (Da) used for peak matching.  
+            Must be less than or equal to ``max_ms2_tolerance_in_da``.  
+            Default is ``0.02``.
+
+        Returns
+        -------
+        numpy.ndarray
+            A 1-D array of entropy similarity scores for all spectra in the library, with dtype ``float32``. 
+            Each entry corresponds to the similarity score for one reference spectrum.
+
+
         """
 
         if not self.index or len(self.index) != 2:
@@ -174,12 +222,35 @@ class DynamicEntropySearchCore(object):
         return entropy_similarity
 
     def search_hybrid(self, precursor_mz, peaks, ms2_tolerance_in_da=0.02):
-        """
-        Perform the hybrid search for the MS/MS spectra.
 
-        :param precursor_mz: The precursor m/z of the MS/MS spectra.
-        :param peaks: The peaks of the MS/MS spectra, needs to be cleaned with the "clean_spectrum" function.
-        :param ms2_tolerance_in_da: The MS/MS tolerance in Da.
+        """
+        Perform hybrid search against the MS/MS spectral index.
+
+        Hybrid search incorporates both:
+        - **Open search** (direct fragment ion matching)
+        - **Neutral-loss search** (matching peaks transformed as ``precursor_mz - peak_mz``)
+
+        Parameters
+        ----------
+        precursor_mz : float
+            The precursor m/z of the query MS/MS spectrum.
+
+        peaks : numpy.ndarray
+            Fragment ions of the query spectrum.  
+            Must be preprocessed using :func:`clean_spectrum`, sorted by m/z, and normalized such that the sum of intensities equals 1.
+        
+        ms2_tolerance_in_da : float, optional
+            Mass tolerance (Da) for fragment matching.  
+            Must be ≤ ``max_ms2_tolerance_in_da``.  
+            Default is ``0.02``.
+
+        Returns
+        -------
+        numpy.ndarray
+            A 1-D array of entropy similarity scores between the query spectrum and each library spectrum.  
+            Dtype is ``float32`` with length equal to the number of indexed spectra.
+
+
         """
 
         if not self.index:
@@ -366,17 +437,38 @@ class DynamicEntropySearchCore(object):
             return duplicate_idx
 
     def build_index(self, all_spectra_list: list, index_for_neutral_loss: bool = True):
+
         """
-        Build the index for the MS/MS spectra library.
+        Build the fragment-ion index (and optional neutral-loss index) for the MS/MS spectral library.
 
-        The spectra provided to this function should be a dictionary in the format of {"precursor_mz": precursor_mz, "peaks": peaks}.
-        The precursor_mz is the precursor m/z value of the MS/MS spectrum;
-        The peaks is a numpy array which has been processed by the function "clean_spectrum".
+        The input spectra must be dictionaries with the structure::
 
-        :param all_spectra_list:    A list of dictionaries in the format of {"precursor_mz": precursor_mz, "peaks": peaks},
-                                    the spectra in the list need to be sorted by the precursor m/z.
-        :param max_indexed_mz: The maximum m/z value that will be indexed. Default is 1500.00005.
-        :param append:  Not implemented yet.
+            {
+                "precursor_mz": float,
+                "peaks": numpy.ndarray
+            }
+
+        where:
+
+        - ``precursor_mz`` is the precursor m/z value of the MS/MS spectrum  
+        - ``peaks`` is a 2-column numpy array that has been preprocessed using :func:`clean_spectrum`, containing sorted and normalized (m/z, intensity) pairs
+
+        Parameters
+        ----------
+        all_spectra_list : list of dict
+            A list of spectrum dictionaries in the format described above.  
+            
+        index_for_neutral_loss : bool, optional
+            Whether to also build the neutral-loss index.  
+            If ``True``, the method generates both the product-ion and neutral-loss indices.  
+            If ``False``, only the product-ion index is built.  
+            Default is ``True``.
+
+        Returns
+        -------
+        None
+            The method updates internal index structures in-place.
+
         """
 
         # Get the total number of spectra and peaks
@@ -577,9 +669,31 @@ class DynamicEntropySearchCore(object):
         return modified_value
 
     def read(self, path_data=None):
+
         """
-        Read the index from the specified path.
+        Load previously built MS/MS spectral index from disk.        
+        
+        Parameters
+        ----------
+        path_data : str or Path, optional
+            Path to the directory containing the index files.  
+            If ``None``, the method uses ``self.path_data``.
+            Default is ``None``.
+
+        Returns
+        -------
+        bool
+            ``True`` if the index was successfully read,  
+            ``False`` if loading failed for any reason.
+
+        Notes
+        -----
+
+        - Any exception during loading returns ``False`` and leaves previous state unchanged.
+
         """
+        
+
         try:
             if path_data is None:
                 path_data = self.path_data
@@ -615,8 +729,25 @@ class DynamicEntropySearchCore(object):
             return False
 
     def write(self, path_data=None):
+
         """
-        Write the index to the specified path.
+        Write the currently built MS/MS spectral index to disk.
+
+        This method serializes all index blocks (product-ion index and optionally the neutral-loss index) along with their associated metadata into the specified directory. 
+        The output directory will be created if it does not exist.
+
+        Parameters
+        ----------
+        path_data : str or Path, optional
+            Path to the directory where index files will be saved.  
+            If ``None``, the method uses ``self.path_data``.  
+            Default is ``None``.
+
+        Returns
+        -------
+        None
+            The method writes files to disk and returns ``None``.
+
         """
         if path_data is None:
             path_data = self.path_data
@@ -643,6 +774,26 @@ class DynamicEntropySearchCore(object):
         return
 
     def remove_index(self, path_data=None):
+
+        """
+        Remove an existing MS/MS spectral index from disk.
+
+        This method deletes all index-related files, including block metadata, binary index blocks, and data files. It is typically used after converting an index to a compact format.
+
+        Parameters
+        ----------
+        path_data : str or Path, optional
+            Path to the directory containing the index files to be removed.  
+            If ``None``, the method uses ``self.path_data``.  
+            Default is ``None``.
+
+        Returns
+        -------
+        None
+            The method removes files from disk and returns ``None``.
+
+
+        """
         if path_data is None:
             path_data = self.path_data
 
@@ -665,6 +816,23 @@ class DynamicEntropySearchCore(object):
         self,
         add_spectrum_list: list,
     ):
+        '''
+        Add new spectra into the existing index in fast-update mode (without resorting).
+
+        This method appends new spectra to the current on-disk index structure by inserting their fragment ions (and, if available, neutral-loss mass) into existing blocks. 
+        Blocks whose reserved capacity is exceeded are moved and expanded, but no global re-sorting of the full index is performed.
+
+        Parameters
+        ----------
+        add_spectrum_list : list of dict
+            A list of spectra to be added. 
+
+        Returns
+        -------
+        None
+            The method updates the on-disk index and in-memory block information in-place.
+        
+        '''
 
         # Fast_update mode
         extend_fold = self.extend_fold
@@ -796,6 +964,25 @@ class DynamicEntropySearchCore(object):
         self,
     ):
 
+        """
+        Convert the current index into fast search mode.
+
+        In fast search mode, all peaks stored in the index are sorted by their corresponding mass key:
+
+        - Product-ion index is sorted by fragment m/z.
+        - Neutral-loss index (if present) is sorted by neutral-loss mass.
+
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        None
+            The method updates the on-disk index and in-memory block metadata in-place.
+
+        """
         self.read()
         [block_ions_info, block_nl_info] = self.index
         # Sort open index
@@ -847,6 +1034,24 @@ class DynamicEntropySearchCore(object):
         self,
         add_spectrum_list: list,
     ):
+
+        """
+        Add new spectra into the index with full sorting.
+
+        This method maintains sorted order within each block by merging existing block data with the new spectra and re-sorting the combined block.
+
+        Parameters
+        ----------
+        add_spectrum_list : list of dict
+            A list of spectra to be added. 
+
+        Returns
+        -------
+        None
+            The method updates the on-disk index and in-memory block metadata in-place.
+
+
+        """
 
         extend_fold = self.extend_fold
         # collect the information of add_spectrum_list
@@ -983,6 +1188,28 @@ class DynamicEntropySearchCore(object):
         topn=None,
         min_similarity=0.1,
     ):
+        '''
+        Get the indices and similarity scores of the top-N most similar items.
+
+        This function sorts the similarity array in descending order, selects the top-N indices, and filters out those below the provided minimum similarity threshold.
+        
+        Parameters
+        ----------
+        similarity_array : numpy.ndarray
+            Array of similarity scores.
+        topn : int, optional
+            Number of top similarity scores to return. If ``None``, all entries are considered.
+        min_similarity : float, optional
+            Minimum similarity threshold. Scores below this value are excluded.
+
+        Returns
+        -------
+        tuple[list[int], list[float]]
+            A tuple containing:
+
+            - **result_idx** - List of indices corresponding to selected scores.
+            - **result** - List of similarity values for the selected indices.
+        '''
         if topn == None:
             topn = len(similarity_array)
 
