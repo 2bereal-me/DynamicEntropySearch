@@ -124,3 +124,79 @@ After that, you can print the results like this:
 ```python
 print(entropy_similarity)
 ```
+
+### Usage of RepositorySearch
+
+RepositorySearch offers prebuilt indexes for public metabolomics repositories, comprising more than 1.4 billion spectra. As a part of DynamicEntropySearch, users can use RepositorySearch to search against these public metabolomics repositories.
+
+Suppose you have downloaded the prebuilt indexes from (https://huggingface.co/datasets/YuanyueLiZJU/dynamic_entropy_search/tree/main) and extracted them to `path_repository_indexes` on your local machine.
+
+Firstly, assign the path of the prebuilt indexes as the `path_data` of `RepositorySearch` class.
+
+```python
+import RepositorySearch
+
+search_engine = RepositorySearch(path_data=path_repository_indexes)
+```
+
+Prepare query spectrum in correct format.
+
+```python
+import numpy as np
+query_spec={
+        "charge": 1,
+        "peaks": np.array([[58.0646, 1894], [86.095, 98105]], dtype=np.float32),
+        "precursor_mz": 183.987125828,
+    }
+```
+Then perform search, and you can get top few results.
+
+```python
+def search_spectrum(
+    search_engine: RepositorySearch,
+    charge,
+    precursor_mz,
+    peaks,
+    method="open",
+    ms1_tolerance_in_da=0.01,
+    ms2_tolerance_in_da=0.02,
+):
+    search_result = search_engine.search_topn_matches(
+        charge=charge,
+        precursor_mz=precursor_mz,
+        peaks=peaks,
+        method=method,
+        ms1_tolerance_in_da=ms1_tolerance_in_da,
+        ms2_tolerance_in_da=ms2_tolerance_in_da,
+        output_full_spectrum=False,
+    )
+    return search_result
+
+
+search_result = search_spectrum(
+    search_engine,
+    charge=query_spec["charge"],
+    precursor_mz=query_spec["precursor_mz"],
+    peaks=query_spec["peaks"],
+    method="hybrid", # or 'open' or 'neutral_loss' or 'identity'
+)
+```
+
+If you want to extract the results:
+
+```python
+def get_spectrum_data(search_engine: RepositorySearch, charge, spec_idx):
+    # you can specify the spectrum you want to extract from results by setting spec_idx
+    spec = search_engine.get_spectrum(charge, spec_idx)
+    spec.pop("scan", None)
+    return spec
+
+spec_data = get_spectrum_data(search_engine, query_spec["charge"], search_result[0].pop("spec_idx"))
+spec_data.update(search_result[0])
+print(f"Top match spectrum data: {spec_data}")
+
+spec_data = get_spectrum_data(search_engine, query_spec["charge"], search_result[1].pop("spec_idx"))
+spec_data.update(search_result[1])
+print(f"Top match spectrum data: {spec_data}")
+
+```
