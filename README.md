@@ -25,7 +25,7 @@ This repository contains the source code to build index, update index, calculate
 
 #### In brief
 ```python
-import DynamicEntropySearch
+from dynamic_entropy_search.dynamic_entropy_search import DynamicEntropySearch
 
 # Assign the path for your library
 entropy_search=DynamicEntropySearch(path_data=path_of_your_library)
@@ -70,7 +70,7 @@ Note that the `precursor_mz` and `peaks` keys are required, the reset of the key
 Then you can have your spectra libraries to be added into the library.
 
 ```python
-import DynamicEntropySearch
+from dynamic_entropy_search.dynamic_entropy_search import DynamicEntropySearch
 
 # Assign the path for your library
 entropy_search=DynamicEntropySearch(path_data=path_of_your_library)
@@ -107,7 +107,7 @@ query_spectrum = {"precursor_mz": 150.0,
 You can call the `DynamicEntropySearch` class with corresponding `path_data` to search the library like this:
 
 ```python
-import DynamicEntropySearch
+from dynamic_entropy_search.dynamic_entropy_search import DynamicEntropySearch
 
 # Assign the path for your library
 entropy_search=DynamicEntropySearch(path_data=path_of_your_library)
@@ -134,7 +134,7 @@ Suppose you have downloaded the prebuilt indexes from (https://huggingface.co/da
 Firstly, assign the path of the prebuilt indexes as the `path_data` of `RepositorySearch` class.
 
 ```python
-import RepositorySearch
+from dynamic_entropy_search.repository_search import RepositorySearch
 
 search_engine = RepositorySearch(path_data=path_repository_indexes)
 ```
