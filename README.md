@@ -349,7 +349,7 @@ result=entropy_search.search_topn_matches(
 )
 ```
 
-You can also pass the query spectrum into the search functions mentioned in **Multiple search options** like this:
+You can also pass the query spectrum into the search functions mentioned in [Multiple search options](#multiple-search-options) like this:
 
 ```python
 # Identity search
@@ -376,7 +376,8 @@ from dynamic_entropy_search.dynamic_entropy_search import DynamicEntropySearch
 entropy_search=DynamicEntropySearch(path_data=path_of_your_library)
 ```
 ##### Clean query spectrum:
-See **Search with external clean function** for details.
+
+See [Search with external clean function](#search-with-external-clean-function) for details.
 
 #### Search with different functions
 
