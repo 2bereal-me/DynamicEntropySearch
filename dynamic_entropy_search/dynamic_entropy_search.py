@@ -103,7 +103,18 @@ class DynamicEntropySearch:
 
         self.entropy_search.read()
 
-    def add_new_spectra(self, spectra_list: list, insert_mode="fast_update", index_for_neutral_loss: bool = True, convert_to_flash:bool=True):
+    def add_new_spectra(
+            self, 
+            spectra_list: list, 
+            insert_mode="fast_update", 
+            index_for_neutral_loss: bool = True, 
+            convert_to_flash:bool=True, 
+            clean=True,
+            precursor_ions_removal_da:float=1.6,
+            noise_threshold:float=0.01,
+            min_ms2_difference_in_da:float=0.05,
+            max_peak_num:int=-1
+            ):
         
         """
         Add new spectra to the index.
@@ -129,6 +140,28 @@ class DynamicEntropySearch:
         convert_to_flash : bool, optional
             Whether to convert spectra into a compact format as the :class:`FlashEntropySearch` after the group is full. Default is ``True``.
 
+        clean : bool, optional
+            Whether to clean the spectra before adding.  
+            Default is ``True``.
+
+        precursor_ions_removal_da : float, optional
+            Peaks with m/z greater than ``precursor_mz - precursor_ions_removal_da`` are removed during cleaning. 
+            Default is ``1.6`` Da.
+
+        noise_threshold : float, optional
+            Relative intensity threshold for noise filtering during cleaning.  
+            Peaks with intensity ``< noise_threshold * max(intensity)`` are removed.  
+            Default is ``0.01``.
+
+        min_ms2_difference_in_da : float, optional
+            Minimum spacing allowed between MS/MS peaks during cleaning.  
+            Default is ``0.05`` Da.
+
+        max_peak_num : int or None, optional
+            Maximum number of peaks to keep after cleaning.  
+            ``None`` keeps all peaks. 
+            Default is ``None``.
+            
         Notes
         -----
 
@@ -139,6 +172,38 @@ class DynamicEntropySearch:
         -------
         None
         """
+
+        #Clean
+        if clean:
+            all_spectra_list=[]
+
+            for spec in spectra_list:
+
+                if 'precursor_mz' not in spec:
+                    raise ValueError(f"Spectrum missing 'precursor_mz' field: {spec}")
+                if 'peaks' not in spec:
+                    raise ValueError(f"Spectrum missing 'peaks' field: {spec}")
+
+                if precursor_ions_removal_da is not None:
+                    max_mz = spec['precursor_mz'] - precursor_ions_removal_da
+
+                else:
+                    max_mz = -1
+
+                spec['peaks'] = clean_spectrum(
+                    peaks=spec['peaks'],
+                    min_mz=0,
+                    max_mz=max_mz,
+                    noise_threshold=noise_threshold,
+                    min_ms2_difference_in_da=min_ms2_difference_in_da,
+                    max_peak_num=max_peak_num,
+                    normalize_intensity=True,
+                )
+
+                if len(spec["peaks"]) > 0:
+                    all_spectra_list.append(spec)
+            
+            spectra_list=all_spectra_list
 
         metadata_array = []
         # Convert metadata of every spectrum to pkl
@@ -719,7 +784,7 @@ class DynamicEntropySearch:
         noise_threshold=0.01,
         min_ms2_difference_in_da=0.05,
         max_peak_num=None,
-        topn: np.uint64 = 3,
+        topn: int = 3,
         need_metadata: bool = True,
     ):
         
