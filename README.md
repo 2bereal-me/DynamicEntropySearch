@@ -59,46 +59,6 @@ spectra_3_for_library ... # Similar to spectra_1_for_library
 ```
 Note that the `precursor_mz` and `peaks` keys are **required**, the reset of the keys are optional.
 
-The spectra in the spectra library should be **cleaned** using `clean_spectrum()` in `ms_entropy` before passed into the `add_new_spectrum()`.
-
-```python
-from ms_entropy import clean_spectrum
-
-precursor_ions_removal_da = 1.6
-
-for spec in spectra_1_for_library:
-    spec['peaks'] = clean_spectrum(
-        peaks = spec['peaks'],
-        max_mz = spec['precursor_mz'] - precursor_ions_removal_da, # Max m/z in peaks.
-        min_mz: float = -1.0, # Min m/z in peaks.
-        noise_threshold: float = 0.01, # The minimum intensity to keep. Defaults to 0.01, which will remove peaks with intensity < 0.01 * max_intensity.
-        min_ms2_difference_in_da: float = 0.05, # The minimum m/z difference between two peaks in the resulting spectrum.
-        min_ms2_difference_in_ppm: float = -1.0, # The minimum m/z difference between two peaks in the resulting spectrum. Defaults to -1, which will use the min_ms2_difference_in_da instead.
-        max_peak_num: int = -1, # The maximum number of peaks to keep.
-        normalize_intensity: bool = True, # Whether to normalize the intensity to sum to 1.
-
-    )
-
-for spec in spectra_2_for_library:
-    spec['peaks'] = clean_spectrum(
-        peaks = spec['peaks'],
-        max_mz = spec['precursor_mz'] - precursor_ions_removal_da
-    )   # Other parameters can be set as aforementioned.
-
-for spec in spectra_3_for_library:
-    spec['peaks'] = clean_spectrum(
-        peaks = spec['peaks'],
-        max_mz = spec['precursor_mz'] - precursor_ions_removal_da
-    ) # Other parameters can be set as aforementioned.
-```
-- Note that three parameters  
-(1) `min_ms2_difference_in_da` in `clean_spectrum()`  
-(2) `max_ms2_tolerance_in_da` in the initialization of class `DynamicEntropySearch()`  
-(3) `ms2_tolerance_in_da` in search functions of `DynamicEntropySearch()`  
-should follow this rule: `min_ms2_difference_in_da` > `max_ms2_tolerance_in_da` * 2 >= `ms2_tolerance_in_da` * 2.  
-An error will be reported if the condition is not met.
-
-
 Then you can have your spectra lists to be added into the library. 
 
 ### Step 2: perform update
@@ -121,7 +81,7 @@ entropy_search=DynamicEntropySearch(
         intensity_weight="entropy",  # "entropy" or None.Determines whether intensities are entropy-weighted. 
 )
 
-# Thirdly, add spectra list into the library one by one.
+# Thirdly, add spectra list into the library one by one. By default, there will be a built-in cleaning function.
 entropy_search.add_new_spectra(spectra_list=spectra_1_for_library)
 
 # Lastly, call build_index() and write() to end the adding operation.
@@ -134,7 +94,54 @@ There are some tips in this process:
 
 - If you only want to build index for open search, you can set `index_for_neutral_loss` in `add_new_spectra()` and `build_index()` to `False`. However, after doing this, you couldn't perform neutral loss search or hybrid search under this library anymore. Besides, adding neutral loss mass index into this library is violated too. This means that once the `index_for_neutral_loss` in the `add_new_spectra()` function as well as `build_index()` function are set to `False`, they should remain `False` from then on. Any violation can cause errors.
 
+- There is a built-in cleaning function in `add_new_spectra()`. Peaks can be cleaned using this function. Cleaning is a necessary part in construction. If `clean` in `add_new_spectra()` is set to `False`, use external clean function `clean_spectrum()` to process spectra. See the following example. Similiar condition can be found in [Search with external clean function](#search-with-external-clean-function). Lack of cleaning can lead to error. 
+
 - It is necessary to call `build_index()` and `write()` lastly after all `add_new_spectra()` as the end of adding operation to make sure all the spectra are loaded into the index.
+
+If use external clean function to process spectra in construction:
+```python
+# Firstly, import.
+from dynamic_entropy_search.dynamic_entropy_search import DynamicEntropySearch
+from ms_entropy import clean_spectrum
+
+# Secondly, assign the path for your library.
+entropy_search=DynamicEntropySearch(
+        path_data=path_of_your_library, 
+        max_ms2_tolerance_in_da=0.024, # Maximum MS/MS tolerance (in Daltons) used during spectrum search.
+        extend_fold=3, # Expansion factor for preallocated storage in each m/z block. Determines ``reserved_len = data_len * extend_fold``. 
+        mass_per_block=0.05, # m/z step size for creating the index blocks.
+        num_per_group=100_000_000, # Number of spectra assigned to each group. 
+        cache_list_threshold=1_000_000, # Number of spectra to accumulate in memory before writing them to disk.
+        max_indexed_mz=1500.00005, # Maximum m/z value to index. Ions above this threshold are grouped into a single block. 
+        intensity_weight="entropy",  # "entropy" or None.Determines whether intensities are entropy-weighted. 
+)
+
+# Manually clean using external clean function
+precursor_ions_removal_da = 1.6
+
+spectra_1_for_library_clean=[]
+for spec in spectra_1_for_library:
+    spec['peaks'] = clean_spectrum(
+        peaks = spec['peaks'],
+        max_mz = spec['precursor_mz'] - precursor_ions_removal_da)
+    if len(spec['peaks']) >0:
+        spectra_1_for_library_clean.append(spec)
+
+# Thirdly, add spectra list into the library one by one. Set `clean` to `False` because spectra have been cleaned before.
+entropy_search.add_new_spectra(spectra_list=spectra_1_for_library_clean, clean=False)
+
+# Lastly, call build_index() and write() to end the adding operation.
+entropy_search.build_index()
+entropy_search.write()
+```
+Generally, we **recommend internal clean in `add_new_spectra()`**.
+
+Note that three parameters  
+(1) `max_ms2_tolerance_in_da` in the initialization of class `DynamicEntropySearch()`  
+(2) `min_ms2_difference_in_da` in `add_new_spectra()`  
+(3) `ms2_tolerance_in_da` in search functions of `DynamicEntropySearch()`  
+should follow this rule: `min_ms2_difference_in_da` > `max_ms2_tolerance_in_da` * 2 >= `ms2_tolerance_in_da` * 2.  
+An error will be reported if the condition is not met.
 
 Once these steps are complete, you will find a folder, which serves as the library, at the `path_data`. In this folder, several binary files and one or more subfolders can be found. These binary files record the information of subfolders and metadata. Each subfolder refers to a group — the organizational unit directly under a library. These subfolders are numerically named, starting from 0. 
 
