@@ -1,0 +1,11 @@
+[project]
+name = "dynamic-ms-entropy"
+version = "0.1.0"
+description = "Dynamic Entropy Search for MS/MS spectra comparison, using entropy similarity. "
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "ms-entropy>=1.4.2",
+    "msgpack>=1.1.2",
+    "numpy>=2.4.3",
+]
