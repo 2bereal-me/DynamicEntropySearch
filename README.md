@@ -12,7 +12,7 @@ The calculation of entropy similarity can be accelerated by using the `Flash Ent
 
 `Dynamic Entropy Search` is built and optimized based on `Flash Entropy Search`. Besides the excellent search performance, it allows unlimited library spectra with high speed and low memory.
 
-![DynamicEntropySearch Flow](Figure_1.png)
+![DynamicEntropySearch Flow](Figure_1_workflow.png)
 
 # How to use this package
 
