@@ -4,7 +4,7 @@ import sys
 import time
 import os
 import msgpack
-# sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'library'))
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'library'))
 from dynamic_entropy_search.dynamic_entropy_search import DynamicEntropySearch
 
 start_time=time.time()
