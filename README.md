@@ -1,6 +1,6 @@
 Dataset for benchmark can be found at the following link:
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18035369.svg)](https://doi.org/10.5281/zenodo.18035369)
-
+An example of the benchmark can be run directly at this link: https://doi.org/10.24433/CO.7222575.v1. You can run this Code Ocean capsule to obtain the index building and updating benchmarks at a 1 million-library scale. 
 
 # Theoretical Background
 
