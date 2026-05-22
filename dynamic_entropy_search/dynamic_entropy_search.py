@@ -14,8 +14,8 @@ class DynamicEntropySearch:
         max_ms2_tolerance_in_da=0.024,
         extend_fold=3,
         mass_per_block: float = 0.05,
-        num_per_group: int = 100_000_000,
-        cache_list_threshold: int = 1_000_000,
+        num_per_group: int = 30_000_000,
+        cache_list_threshold: int = 500_000,
         max_indexed_mz: float = 1500.00005,
         intensity_weight="entropy",  # "entropy" or None
     ):
