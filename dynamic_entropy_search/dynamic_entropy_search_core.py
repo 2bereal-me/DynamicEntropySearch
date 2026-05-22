@@ -90,8 +90,8 @@ class DynamicEntropySearchCore(object):
         self.dtype_block_info = np.dtype(
             [
                 ("start_idx", np.uint64),  # The start index of the block.
-                ("data_len", np.uint64),  # The length of data in the block.
-                ("reserved_len", np.uint64),  # The reserved length of the block.
+                ("data_len", np.uint32),  # The length of data in the block.
+                ("reserved_len", np.uint32),  # The reserved length of the block.
                 ("is_sorted", bool),  # Whether the block is sorted or not
             ]
         )
